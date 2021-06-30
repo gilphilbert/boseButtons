@@ -2,7 +2,7 @@
 
   
 
-This contains the code for the button controller, run on an ATTiny261/461/861 located on the front of the Bose AWR-1 "upferb" project.
+This contains the code for the button controller, run on an ATTiny461/861 located on the front of the Bose AWR-1 "upferb" project.
 
 ### The Top Panel
 The top panel for the device contains 17 buttons in a button matrix. The matrix features four "columns" and five "rows". Each button is represented an an intersection between a column and a row:
@@ -41,3 +41,10 @@ The ATTiny is an i2c slave. The code for the i2c slave is [usitwislave.h](https:
 The encoding is a simple bit-shift. Starting at the top left of the button panel the buttons are base-2 indexed. `Mode Set` is 1, `Mode` is 2, `Clock Set` is 4, `<` is 8, and so on. A reading of 128 would indicate `Three` has been pressed. A reading of 192 would indicated two buttons have been pressed, `Three` (128) and `Two` (64).
 
 Sample code to use this can be found in the mainboard code for the Bose AWR-1 'upferb' project.
+
+### Quick note about ATTiny Fuses
+The ATTiny261/461/861 series ship with the clock divisor enabled and the internal clock active. This results in a default clock speed of 1MHz. In order for i2c communication to work effectively, increase the speed of the clock to 8MHz by setting the lfuse to disable the divisor. PlatformIO doesn't behave well with these AVRs and my USBTiny adapter. It may work with others. If you get errors setting the fuses, use the following avrdude command (`sudo dnf install avrdude`):
+```bash
+avrdude -p t861 -c usbtiny -U lfuse:w:0xE2:m
+```
+If you're using the ATTiny461, change the t861 above to t461.
