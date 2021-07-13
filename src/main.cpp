@@ -24,11 +24,11 @@
 
 // row button definitions. For example, row_1 has four buttons in (l-t-r) positions 7, 9, 8 and 6.
 // these lists are zero indexed. Values of 254 are null (i.e., these buttons don't exist in the mapping).
-uint8_t row_1_buttons[4] = { 7, 9, 8, 6 };
-uint8_t row_2_buttons[4] = { 254, 254, 5, 254 };
+uint8_t row_1_buttons[4] = { 8, 6, 7, 9 };
+uint8_t row_2_buttons[4] = { 254, 254, 10, 254 };
 uint8_t row_3_buttons[4] = { 12, 15, 16, 11 };
-uint8_t row_4_buttons[4] = { 1, 0, 3, 10 };
-uint8_t row_5_buttons[4] = { 14, 2, 4, 13 };
+uint8_t row_4_buttons[4] = { 1, 2, 4, 5 };
+uint8_t row_5_buttons[4] = { 14, 0, 3, 13 };
 
 // stores the button state (was it pressed?)
 uint8_t pressed[17] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
