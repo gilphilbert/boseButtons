@@ -47,7 +47,7 @@ void checkPin(volatile uint8_t *reg, uint8_t pin, uint8_t button) {
 
   // if the row is high
   if (value == 1) {
-    // show that the button was pre7, 254, 12, 1, 14ssed down
+    // show that the button was pressed down
     transient[button] = 1;
   // otherwise, the pin is low. Check to see if it was high previously
   } else if (transient[button] == 1) {
@@ -56,7 +56,17 @@ void checkPin(volatile uint8_t *reg, uint8_t pin, uint8_t button) {
     // show that the button was pressed
     pressed[button] = 1;
     // send an interrupt to the master
-    PORTA |= (1 << MASTER_IRQ);
+    // here, we check to see if any other buttons are still being pushed down (transients are high)
+    // this means we can register multiple button presses
+    bool raiseIRQ = true;
+    for (unsigned short i = 0; i< 17; i++) {
+      if (transient[i] == 1) {
+        raiseIRQ = false;
+      }
+    }
+    if (raiseIRQ) {
+      PORTA |= (1 << MASTER_IRQ);
+    }
   }
 }
 
@@ -182,6 +192,7 @@ int main() {
   // enable interrupts globally
   sei();
 
+  // enable the i2c slave
   usi_twi_slave(0x10, 0, request, nullptr);
 
   // we don't have anything in the loop
