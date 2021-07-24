@@ -1,7 +1,6 @@
 #include <avr/io.h>
 #include <util/delay.h>
 #include <avr/interrupt.h>
-#include <util/atomic.h> 
 
 #include "usitwislave.h"
 
@@ -32,9 +31,9 @@ const uint8_t row_4_buttons[4] = { 1, 2, 4, 5 };
 const uint8_t row_5_buttons[4] = { 14, 0, 3, 13 };
 
 // stores the button press states, essentially this is our return value
-uint32_t btnPress = 0;
+volatile uint32_t btnPress = 0;
 // stores the transient state (for the state machine)
-uint8_t transient[17] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
+volatile uint8_t transient[17] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
 
 // stores the next expected state for the next Col (relates to below). Toggles between zero and one.
 volatile uint8_t nextState = 0;
@@ -42,28 +41,34 @@ volatile uint8_t nextState = 0;
 volatile uint8_t currentCol = COL_A;
 // are we currently checking pins?
 volatile uint8_t nowScanning = 0;
-volatile bool scanPins = false;
 
 // this function checks to see if a given row is high or low, translating to a button press
 void checkPin(uint8_t pin, uint8_t button) {
-  if (button < 254) {
-    // check state of row
-    uint8_t value = (PINA & _BV(pin)) ? 1 : 0;
+  // check state of row
+  uint8_t value = (PINA & _BV(pin)) ? 1 : 0;
 
-    if (transient[button] != value) {
-      transient[button] = value;
-      if (value == 1) {
-        btnPress |= (1 << button);
-        PORTA |= (1 << MASTER_IRQ);
-      }
+  if (transient[button] != value) {
+    transient[button] = value;
+    if (value == 1) {
+      btnPress |= (1 << button);
+      PORTA |= (1 << MASTER_IRQ);
     }
   }
 }
 
-// isr called when PCINTx is triggered
+// isr called when the timer overflows
 ISR(PCINT_vect) {
   if (nowScanning) {
-    uint8_t btnIndex = currentCol - 3;
+    // default is COL_A (index 0)
+    uint8_t btnIndex = 0;
+    // check to see if a different column is active
+    if (currentCol == COL_B) {
+      btnIndex = 1;
+    } else if (currentCol == COL_C) {
+      btnIndex = 2;
+    } else if (currentCol == COL_D) {
+      btnIndex = 3;
+    }
 
     // check the pins to see if they're high (a button was pressed)
     checkPin(ROW_1, row_1_buttons[btnIndex]);
@@ -75,7 +80,7 @@ ISR(PCINT_vect) {
 }
 
 // counter to show how many cycles have passed (how many times timer has overflowed)
-volatile uint8_t intr_wait = 0;
+uint8_t intr_wait = 0;
 // isr that's fired when timer1 overflows
 ISR (TIMER1_OVF_vect) {
   // if we still need to wait
@@ -110,22 +115,6 @@ ISR (TIMER1_OVF_vect) {
       }
     }
   }
-}
-
-static void request(volatile uint8_t input_buffer_length, const uint8_t *input_buffer, uint8_t *output_buffer_length, uint8_t *output_buffer) {
-  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-    *output_buffer_length = 4;
-
-    output_buffer[0] = (btnPress >> 24) & 0xFF;
-    output_buffer[1] = (btnPress >> 16) & 0xFF;
-    output_buffer[2] = (btnPress >> 8) & 0xFF;
-    output_buffer[3] = btnPress & 0xFF;
-
-    btnPress = 0;
-  }
-  
-  // clear the interrupt to the master
-  PORTA &= ~(1 << MASTER_IRQ);
 }
 
 void columnSetup() {
@@ -171,28 +160,43 @@ void rowSetup() {
   PCMSK0 |= (1 << ROW_5); // enables interrupt for ROW_2
 }
 
+static void request(volatile uint8_t input_buffer_length, const uint8_t *input_buffer, uint8_t *output_buffer_length, uint8_t *output_buffer) {
+  uint32_t val = btnPress;
+  btnPress = 0;
+
+  *output_buffer_length = 4;
+
+  output_buffer[0] = (val >> 24) & 0xFF;
+  output_buffer[1] = (val >> 16) & 0xFF;
+  output_buffer[2] = (val >> 8) & 0xFF;
+  output_buffer[3] = val & 0xFF;
+
+  // clear the interrupt to the master
+  PORTA &= ~(1 << MASTER_IRQ);
+}
+
 int main() {
   // sets irq to output
-  DDRA |= (1 << MASTER_IRQ);
+  DDRA |= (1<<MASTER_IRQ)|(1<<MASTER_IRQ);
 
   // wait for the io pins to settle
-  _delay_ms(50);
+  _delay_ms(500);
 
   //set up the rows
   rowSetup();
   // wait for pcints to set up
-  _delay_ms(50);
+  _delay_ms(300);
 
   //set up the rows
   columnSetup();
   // wait for timer to set up
-  _delay_ms(50);
-
-  // enable the i2c slave
-  usi_twi_slave(0x10, 0, request, nullptr);
+  _delay_ms(300);
 
   // enable interrupts globally
   sei();
+
+  // enable the i2c slave
+  usi_twi_slave(0x10, 0, request, nullptr);
 
   // we don't have anything in the loop
   while(1);
