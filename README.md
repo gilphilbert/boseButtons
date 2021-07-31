@@ -38,7 +38,7 @@ The ATTiny is an i2c slave. The code for the i2c slave is [usitwislave.h](https:
 ### Encoding
 An array with 17 elements holds the status for the buttons. The buttons are zero-indexed from top left to bottom right. `Alarm Set` is the first button so has the index 0. When the appropriate pins are shorted (`Column B` and `Row  5`) a bit is in the array at index 0 to say the button was pressed (this is set on release of the button).
 
-The encoding itself is a simple bit-shift. Starting at the top left of the button panel the buttons are base-2 indexed. `Alarm Set` is 1, `Mode` is 2, `Clock Set` is 4, `<` is 8, and so on. A reading of 128 would indicate `Three` has been pressed. A reading of 192 would indicated two buttons have been pressed, `Three` (128) and `Two` (64).
+On I2C request, the ATtiny will return exactly 17 bytes, each one is an uint8_t value that represents each button, in order. It will be set to either 0 or 1 (1 means it was pressed, 0 means it was not.)
 
 Sample code to use this can be found in the mainboard code for the Bose AWR-1 'upferb' project.
 
